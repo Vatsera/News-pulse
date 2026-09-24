@@ -28,7 +28,13 @@ backend/  (Express API: GET /clusters, GET /clusters/:id, GET /timeline,
 frontend/ (Next.js — fetches from the backend, renders the timeline)
 ```
 
-The backend's `/ingest/trigger` endpoint spawns `scraper/main.py` as a separate OS process (see `backend/services/ingest.service.js`) — there's no HTTP call between Node and Python, just a spawned process.
+The backend's `/ingest/trigger` endpoint spawns `scraper/main.py` as a separate OS process (see `backend/services/ingest.service.js`) — there's no HTTP call between Node and Python, just a spawned process. This only works when Node and Python run on the same machine (true locally); see **Deployment** below for how ingestion actually runs in the hosted version.
+
+## News sources used
+
+- **BBC News** — `http://feeds.bbci.co.uk/news/rss.xml`
+- **NPR** — `https://feeds.npr.org/1001/rss.xml`
+- **Al Jazeera** — `https://www.aljazeera.com/xml/rss/all.xml`
 
 ## Tech stack
 
@@ -112,10 +118,29 @@ None of the `.env` files are committed — copy each `.env.example` and fill in 
 | POST | `/ingest/trigger` | Kick off a scraper run |
 | GET | `/ingest/status/:jobId` | Check status of a triggered run |
 
-## Keeping the data fresh
+## Deployment
 
-The scraper only runs when you run `python main.py` manually or hit `POST /ingest/trigger`. For continuously updated data, schedule one of those on a recurring basis (cron, a hosting platform's scheduled job, etc.).
+Live URLs:
+- Frontend: https://news-pulse-coral-kappa.vercel.app
+- Backend API: https://news-pulse-5osn.onrender.com
+
+| Component | Runs on | Why |
+|---|---|---|
+| Frontend | Vercel | Purpose-built for Next.js; free tier, zero config |
+| Backend API | Render (free Node web service) | Simple Express host; free tier, connected to GitHub for auto-deploy |
+| Database | MongoDB Atlas (free M0 cluster) | Managed, no ops, reachable from both Render and GitHub Actions |
+| Scraper | **GitHub Actions**, scheduled hourly (`.github/workflows/scrape.yml`) | See note below |
+
+**Why the scraper doesn't run via `/ingest/trigger` in production:** that endpoint spawns Python as a subprocess of the Node backend, which only works when both run on the same machine. Render's free Node web service has no Python runtime installed, so `/ingest/trigger` fails there (by design of that hosting tier, not a code bug). Rather than pay for a host that bundles both runtimes, ingestion instead runs as its own scheduled GitHub Actions job — one of the alternatives this assessment's own Part 4 explicitly lists ("GitHub Actions cron"). It runs `scraper/main.py` hourly against the same Atlas database, using `MONGO_URI`/`DB_NAME` repo secrets.
+
+The **Refresh Data** button still calls `POST /ingest/trigger` and polls `/ingest/status/:jobId` exactly as specified, and this works end-to-end when run locally (`PYTHON_PATH`/`PYTHON_SCRIPT` point at a real local Python + script). On the hosted backend, that call fails for the reason above, and the button falls back to simply re-fetching `/timeline` with a one-line explanation, rather than showing a raw server error to a visitor.
 
 ## Notes on the clustering algorithm
 
-Clustering is a single greedy pass over articles sorted by publish time: each article joins the best-matching existing cluster if it shares at least 3 keywords and a Jaccard similarity of at least 0.15 with that cluster's accumulated keyword pool, otherwise it starts a new cluster. Full details are in `scraper/clustering.py`.
+**Approach**: keyword/word-overlap grouping (Option A), not TF-IDF. Clustering is a single greedy pass over articles sorted by publish time: each article joins the best-matching existing cluster if it shares at least `MIN_SHARED_WORDS = 3` keywords *and* a Jaccard similarity of at least `MIN_JACCARD = 0.15` with that cluster's accumulated keyword pool (both thresholds picked by hand-testing against real feed output — high enough to avoid grouping unrelated stories that happen to share a couple of common words, low enough that same-story articles from different outlets still match despite differing phrasing). If no existing cluster clears both thresholds, the article starts a new one. Full implementation is in `scraper/clustering.py`.
+
+**Limitations**:
+- **Order-dependent**: it's a single greedy pass in publish-time order — once an article joins a cluster, that decision is never revisited even if a later article would have been a better fit.
+- **Unbounded keyword drift**: a cluster's keyword pool only ever grows (`cluster["keywords"] |= article_keywords`), so a large, old cluster can slowly accumulate enough unrelated keywords to start absorbing tangentially-related articles.
+- **No stemming**: "election" and "elections" are treated as different keywords, which can undercount real overlap.
+- **No cross-source story merging**: the same real-world story from two different outlets isn't recognized as one story unless their keyword overlap independently clears the threshold (this is listed as an optional stretch goal, not attempted here).
