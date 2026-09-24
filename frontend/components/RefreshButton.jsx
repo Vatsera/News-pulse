@@ -11,7 +11,7 @@
 "use client";
 
 import { useState } from "react";
-import { getTimeline } from "@/lib/api";
+import { getTimeline, FRIENDLY_ERROR_MESSAGE } from "@/lib/api";
 
 export default function RefreshButton({ onSuccess }) {
   const [isLoading, setIsLoading] = useState(false);
@@ -26,8 +26,8 @@ export default function RefreshButton({ onSuccess }) {
     try {
       const fresh = await getTimeline();
       onSuccess(fresh.timeline);
-    } catch (err) {
-      setError(err.message);
+    } catch {
+      setError(FRIENDLY_ERROR_MESSAGE);
     } finally {
       setIsLoading(false);
     }

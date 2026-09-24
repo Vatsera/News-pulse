@@ -7,6 +7,11 @@
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
+/** Shown to visitors for any fetch failure -- never the raw backend/network
+ * error text, which can look alarming or technical (e.g. "Internal server
+ * error", a timeout message) for something usually solved by a retry. */
+export const FRIENDLY_ERROR_MESSAGE = "Couldn't load the latest news. Please try again in a moment.";
+
 async function request(path, options) {
   let response;
   try {

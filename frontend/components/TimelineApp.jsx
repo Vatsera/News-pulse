@@ -17,7 +17,7 @@ import RefreshButton from "@/components/RefreshButton";
 import ErrorState from "@/components/ErrorState";
 import EmptyState from "@/components/EmptyState";
 import LoadingState from "@/components/LoadingState";
-import { getTimeline } from "@/lib/api";
+import { getTimeline, FRIENDLY_ERROR_MESSAGE } from "@/lib/api";
 import { buildSourceColorMap } from "@/lib/sourceColors";
 
 const FALLBACK_SOURCE_COLOR = { dot: "bg-muted", text: "text-ink-secondary" };
@@ -105,8 +105,8 @@ export default function TimelineApp({ initialData, initialError }) {
       const fresh = await getTimeline();
       setTimeline(fresh.timeline);
       setError(null);
-    } catch (err) {
-      setError(err.message);
+    } catch {
+      setError(FRIENDLY_ERROR_MESSAGE);
     } finally {
       setRetrying(false);
     }

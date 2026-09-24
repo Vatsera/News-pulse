@@ -10,7 +10,7 @@
  */
 
 import TimelineApp from "@/components/TimelineApp";
-import { getTimeline } from "@/lib/api";
+import { getTimeline, FRIENDLY_ERROR_MESSAGE } from "@/lib/api";
 
 export default async function HomePage() {
   let initialData = null;
@@ -18,8 +18,8 @@ export default async function HomePage() {
 
   try {
     initialData = await getTimeline();
-  } catch (err) {
-    initialError = err.message;
+  } catch {
+    initialError = FRIENDLY_ERROR_MESSAGE;
   }
 
   return <TimelineApp initialData={initialData} initialError={initialError} />;
