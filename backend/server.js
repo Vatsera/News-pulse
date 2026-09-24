@@ -18,11 +18,20 @@ const ingestRoutes = require("./routes/ingest.routes");
 const { notFound, errorHandler } = require("./middleware/errorHandler");
 
 const PORT = process.env.PORT || 5000;
-// .trim(): env vars pasted through a hosting dashboard's UI can pick up a
-// stray trailing newline/space, which crashes the cors middleware with
-// ERR_INVALID_CHAR when it tries to set the Access-Control-Allow-Origin
-// header -- trimming here makes that whole class of paste artifacts harmless.
-const FRONTEND_URL = (process.env.FRONTEND_URL || "http://localhost:3000").trim();
+
+// FRONTEND_URL is sanitized rather than used as-is: hosting dashboard text
+// fields (Render's included) can silently inject stray whitespace or other
+// non-printable characters when a value is typed/pasted in, which crashes
+// the cors middleware with ERR_INVALID_CHAR when it tries to set the
+// Access-Control-Allow-Origin header. Stripping non-printable characters
+// and adding the scheme in code (rather than requiring "https://" to be
+// typed into that field correctly) avoids that whole class of paste bugs.
+function resolveFrontendUrl() {
+  const raw = (process.env.FRONTEND_URL || "http://localhost:3000").replace(/[^\x20-\x7E]/g, "").trim();
+  return /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+}
+
+const FRONTEND_URL = resolveFrontendUrl();
 
 async function main() {
   await connectToDatabase();
