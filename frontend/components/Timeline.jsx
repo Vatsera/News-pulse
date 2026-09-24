@@ -94,15 +94,26 @@ function TimelineAxis({ ticks }) {
             style={{ left: `${tick.position}%` }}
           />
         ))}
-        {ticks.map((tick, i) => (
-          <span
-            key={i}
-            className="absolute top-2 -translate-x-1/2 whitespace-nowrap text-xs font-medium text-muted"
-            style={{ left: `${tick.position}%` }}
-          >
-            {tick.label}
-          </span>
-        ))}
+        {ticks.map((tick, i) => {
+          // Centering every label on its tick works fine in the middle, but
+          // the first/last ticks sit right at the axis edge -- a centered
+          // label there hangs half off the card and gets clipped (e.g. "PM"
+          // disappearing off a right-edge tick). Anchor those two inward
+          // instead of centering them.
+          const isFirst = i === 0;
+          const isLast = i === ticks.length - 1;
+          return (
+            <span
+              key={i}
+              className={`absolute top-2 whitespace-nowrap text-xs font-medium text-muted ${
+                isFirst ? "" : isLast ? "-translate-x-full" : "-translate-x-1/2"
+              }`}
+              style={{ left: `${tick.position}%` }}
+            >
+              {tick.label}
+            </span>
+          );
+        })}
       </div>
     </div>
   );
