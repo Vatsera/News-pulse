@@ -18,7 +18,11 @@ const ingestRoutes = require("./routes/ingest.routes");
 const { notFound, errorHandler } = require("./middleware/errorHandler");
 
 const PORT = process.env.PORT || 5000;
-const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
+// .trim(): env vars pasted through a hosting dashboard's UI can pick up a
+// stray trailing newline/space, which crashes the cors middleware with
+// ERR_INVALID_CHAR when it tries to set the Access-Control-Allow-Origin
+// header -- trimming here makes that whole class of paste artifacts harmless.
+const FRONTEND_URL = (process.env.FRONTEND_URL || "http://localhost:3000").trim();
 
 async function main() {
   await connectToDatabase();
